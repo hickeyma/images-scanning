@@ -1,0 +1,62 @@
+# .github/workflows/docker_scan.yml
+name: Docker Security Scan
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'Dockerfile'
+      - '.github/workflows/docker_scan.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'Dockerfile'
+      - '.github/workflows/docker_scan.yml'
+
+jobs:
+  # ---------------------------------------------------------------
+  # Lint Dockerfile
+  # ---------------------------------------------------------------
+  lint:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Hadolint
+        id: hadolint
+        continue-on-error: true
+        run: |
+          curl -sSL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint
+          chmod +x /usr/local/bin/hadolint
+          hadolint -f sarif Dockerfile > hadolint-results.sarif || true
+
+      - name: Upload Hadolint SARIF
+        if: always() && hashFiles('hadolint-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: hadolint-results.sarif
+          category: hadolint
+  # scan-image:
+  #   runs-on: ubuntu-24.04
+  #   permissions:
+  #     contents: read
+  #   steps:
+  #     #- name: Checkout
+  #     #  uses: actions/checkout@v4
+
+  #     #- name: Build image
+  #     #  run: |
+  #     #    docker build -t lmcache/standalone:latest .
+
+  #     - name: Run Trivy (image scan)
+  #       uses: aquasecurity/trivy-action@0.33.1
+  #       with:
+  #         image-ref: lmcache/standalone:latest
+  #         format: 'table'
+  #         severity: 'CRITICAL,HIGH'
+  #         vuln-type: 'os,library'
+  #         ignore-unfixed: true
+  #         exit-code: '1'   # fail job if findings at selected severities
